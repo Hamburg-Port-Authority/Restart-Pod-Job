@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+metadata:
+  labels:
+    app: pod-terminator
+  name: pod-terminator
+  namespace: pod-terminator
+spec:
+  schedule: "0 3 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: pod-terminator
+            image: ghcr.io/stevedetm/restart-pod-job:latest
+          serviceAccountName: pod-terminator
+          restartPolicy: OnFailure
