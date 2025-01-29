@@ -59,7 +59,11 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 
 		// Delete each pod
 		for _, pod := range pods.Items {
-			fmt.Printf("Podname: %s CreationDate %s", pod.Name, pod.CreationTimestamp)
+			creationTimestamp := pod.CreationTimestamp.Time
+			currentTime := time.Now()
+			podAge := currentTime.Sub(creationTimestamp)
+
+			fmt.Printf("Podname: %s CreationDate %s \n", pod.Name, podAge)
 			// err := clientset.CoreV1().Pods(namespace.Name).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 			// if err != nil {
 			// 	fmt.Printf("Failed to delete pod %s in namespace %s: %v\n", pod.Name, namespace.Name, err)
