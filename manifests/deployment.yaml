@@ -15,5 +15,5 @@ spec:
     spec:
       containers:
       - name: pod-terminator-operator
-        image: your-dockerhub-username/pod-terminator-operator:latest
+        image: ghcr.io/stevedetm/restart-pod-job:latest
         imagePullPolicy: Always
