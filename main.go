@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,11 +60,21 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 
 		// Delete each pod
 		for _, pod := range pods.Items {
+			describedPod, err := clientset.CoreV1().Pods(namespace.Name).Get(context.TODO(), pod.Name, metav1.GetOptions{})
+			if err != nil {
+				log.Fatalf("Failed to get pod: %v", err)
+			}
 			creationTimestamp := pod.CreationTimestamp.Time
 			currentTime := time.Now()
 			podAge := currentTime.Sub(creationTimestamp)
+			maxPodAge := 24 * time.Hour
+			if (podAge > maxPodAge) {
+				fmt.Printf("OLD!!! Podname: %s CreationDate %s \n", pod.Name, &describedPod.OwnerReferences[0])
 
-			fmt.Printf("Podname: %s CreationDate %s \n", pod.Name, podAge)
+			} else {
+				fmt.Printf("NEW!!! Podname: %s CreationDate %s \n", pod.Name, &describedPod.OwnerReferences[0])
+			}
+			
 			// err := clientset.CoreV1().Pods(namespace.Name).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 			// if err != nil {
 			// 	fmt.Printf("Failed to delete pod %s in namespace %s: %v\n", pod.Name, namespace.Name, err)
