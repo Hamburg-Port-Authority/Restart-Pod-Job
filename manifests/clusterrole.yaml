@@ -7,7 +7,7 @@ rules:
     resources: ["namespaces", "pods"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["apps/v1"]
-    resources: ["repliacasets"]
+    resources: ["replicasets"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["apps/v1"]
     resources: ["deployments", "daemonsets", "statefulsets"]

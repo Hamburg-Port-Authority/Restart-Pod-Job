@@ -69,7 +69,7 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 				if kindOfOwner == "ReplicaSet" {
 					describedRS, err := clientset.AppsV1().ReplicaSets(namespace.Name).Get(context.TODO(), nameOfOwner, metav1.GetOptions{})
 					if err != nil {
-						log.Fatalf("Failed to get pod: %v", err)
+						log.Fatalf("Failed to get replicaset: %v", err)
 					}
 					kindOfOwner = describedRS.OwnerReferences[0].Kind
 					nameOfOwner = describedRS.OwnerReferences[0].Name
