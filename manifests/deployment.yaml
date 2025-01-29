@@ -13,7 +13,7 @@ spec:
       labels:
         app: pod-terminator-job
     spec:
-      serviceAccount: pod-terminator
+      serviceAccountName: pod-terminator
       containers:
       - name: pod-terminator-job
         image: ghcr.io/stevedetm/restart-pod-job:latest
