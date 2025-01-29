@@ -28,9 +28,6 @@ func main() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
-	// for {
-	// select {
-	// case <-ticker.C:
 	fmt.Println("Starting pod termination task...")
 	err = terminateAllPods(clientset)
 	if err != nil {
@@ -38,8 +35,6 @@ func main() {
 	} else {
 		fmt.Println("Successfully terminated all pods.")
 	}
-	// }
-	// }
 }
 
 // terminateAllPods deletes all pods in all namespaces
@@ -68,13 +63,23 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 			currentTime := time.Now()
 			podAge := currentTime.Sub(creationTimestamp)
 			maxPodAge := 24 * time.Hour
-			if (podAge > maxPodAge) {
-				fmt.Printf("OLD!!! Podname: %s CreationDate %s \n", pod.Name, &describedPod.OwnerReferences[0])
-
+			if podAge > maxPodAge {
+				kindOfOwner := describedPod.OwnerReferences[0].Kind
+				nameOfOwner := describedPod.OwnerReferences[0].Name
+				if kindOfOwner == "ReplicaSet" {
+					describedRS, err := clientset.AppsV1().ReplicaSets(namespace.Name).Get(context.TODO(), nameOfOwner, metav1.GetOptions{})
+					if err != nil {
+						log.Fatalf("Failed to get pod: %v", err)
+					}
+					kindOfOwner = describedRS.OwnerReferences[0].Kind
+					nameOfOwner = describedRS.OwnerReferences[0].Name
+				}
+				// kubectl rollout restart kindofOwner <daemonset-name> -n <namespace>
+				fmt.Printf("OLD!!! Podname: %s; age: %s; OwnerName %s; OwnerKind %s\n", pod.Name, podAge, nameOfOwner, kindOfOwner)
 			} else {
 				fmt.Printf("NEW!!! Podname: %s CreationDate %s \n", pod.Name, &describedPod.OwnerReferences[0])
 			}
-			
+
 			// err := clientset.CoreV1().Pods(namespace.Name).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 			// if err != nil {
 			// 	fmt.Printf("Failed to delete pod %s in namespace %s: %v\n", pod.Name, namespace.Name, err)
