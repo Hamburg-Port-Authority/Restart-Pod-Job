@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-terminator-operator
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pod-terminator-operator
+  template:
+    metadata:
+      labels:
+        app: pod-terminator-operator
+    spec:
+      containers:
+      - name: pod-terminator-operator
+        image: your-dockerhub-username/pod-terminator-operator:latest
+        imagePullPolicy: Always
