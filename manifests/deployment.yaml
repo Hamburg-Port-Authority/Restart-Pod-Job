@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pod-terminator-operator
+  name: pod-terminator-job
   namespace: kube-system
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: pod-terminator-operator
+      app: pod-terminator-job
   template:
     metadata:
       labels:
-        app: pod-terminator-operator
+        app: pod-terminator-job
     spec:
       containers:
-      - name: pod-terminator-operator
+      - name: pod-terminator-job
         image: ghcr.io/stevedetm/restart-pod-job:latest
         imagePullPolicy: Always
