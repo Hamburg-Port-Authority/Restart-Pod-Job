@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: pod-terminator-job
-  namespace: kube-system
+  namespace: pod-terminator
 spec:
   replicas: 1
   selector:
@@ -13,6 +13,7 @@ spec:
       labels:
         app: pod-terminator-job
     spec:
+      serviceAccount: pod-terminator
       containers:
       - name: pod-terminator-job
         image: ghcr.io/stevedetm/restart-pod-job:latest
