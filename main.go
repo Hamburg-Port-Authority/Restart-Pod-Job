@@ -27,18 +27,18 @@ func main() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
-	for {
-		select {
-		case <-ticker.C:
-			fmt.Println("Starting pod termination task...")
-			err := terminateAllPods(clientset)
-			if err != nil {
-				fmt.Printf("Error terminating pods: %v\n", err)
-			} else {
-				fmt.Println("Successfully terminated all pods.")
-			}
-		}
+	// for {
+	// select {
+	// case <-ticker.C:
+	fmt.Println("Starting pod termination task...")
+	err = terminateAllPods(clientset)
+	if err != nil {
+		fmt.Printf("Error terminating pods: %v\n", err)
+	} else {
+		fmt.Println("Successfully terminated all pods.")
 	}
+	// }
+	// }
 }
 
 // terminateAllPods deletes all pods in all namespaces
