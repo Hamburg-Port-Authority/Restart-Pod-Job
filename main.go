@@ -45,6 +45,11 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 		return fmt.Errorf("failed to list namespaces: %v", err)
 	}
 
+	maxPodAge := 5 * time.Minute
+	currentTime := time.Now()
+	lastRestartedDeployment := ""
+	lastRestartedNamespace := ""
+
 	// Loop through each namespace
 	for _, namespace := range namespaces.Items {
 		// Get all pods in the namespace
@@ -55,14 +60,13 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 
 		// Delete each pod
 		for _, pod := range pods.Items {
+
 			describedPod, err := clientset.CoreV1().Pods(namespace.Name).Get(context.TODO(), pod.Name, metav1.GetOptions{})
 			if err != nil {
 				log.Fatalf("Failed to get pod: %v", err)
 			}
-			creationTimestamp := pod.CreationTimestamp.Time
-			currentTime := time.Now()
-			podAge := currentTime.Sub(creationTimestamp)
-			maxPodAge := 5 * time.Minute
+			podAge := currentTime.Sub(pod.CreationTimestamp.Time)
+
 			if podAge > maxPodAge {
 				kindOfOwner := describedPod.OwnerReferences[0].Kind
 				nameOfOwner := describedPod.OwnerReferences[0].Name
@@ -76,17 +80,21 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 					if err != nil {
 						log.Fatalf("Failed to get replicaset %s: %v", nameOfOwner, err)
 					}
-					
-					// Update the deployment annotation to trigger a rollout restart
-					if describedDeploy.Spec.Template.ObjectMeta.Annotations == nil {
-						describedDeploy.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
-					}
-					describedDeploy.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+					if nameofDeployment == lastRestartedDeployment && namespace.Name == lastRestartedNamespace {
+						// Update the deployment annotation to trigger a rollout restart
+						if describedDeploy.Spec.Template.ObjectMeta.Annotations == nil {
+							describedDeploy.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
+						}
+						describedDeploy.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 
-					// Apply the update
-					_, err = clientset.AppsV1().Deployments(namespace.Name).Update(context.TODO(), describedDeploy, metav1.UpdateOptions{})
-					if err != nil {
-						log.Fatalf("Failed to update deployment: %v", err)
+						// Apply the update
+						_, err = clientset.AppsV1().Deployments(namespace.Name).Update(context.TODO(), describedDeploy, metav1.UpdateOptions{})
+						if err != nil {
+							log.Fatalf("Failed to update deployment: %v", err)
+						}
+						lastRestartedDeployment = nameofDeployment
+						lastRestartedNamespace = namespace.Name
+
 					}
 				}
 				// kubectl rollout restart kindofOwner <daemonset-name> -n <namespace>
