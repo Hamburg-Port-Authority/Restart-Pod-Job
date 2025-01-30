@@ -62,7 +62,7 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 			creationTimestamp := pod.CreationTimestamp.Time
 			currentTime := time.Now()
 			podAge := currentTime.Sub(creationTimestamp)
-			maxPodAge := 24 * time.Hour
+			maxPodAge := 5 * time.Minute
 			if podAge > maxPodAge {
 				kindOfOwner := describedPod.OwnerReferences[0].Kind
 				nameOfOwner := describedPod.OwnerReferences[0].Name
