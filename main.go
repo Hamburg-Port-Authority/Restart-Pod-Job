@@ -63,44 +63,45 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 
 			describedPod, err := clientset.CoreV1().Pods(namespace.Name).Get(context.TODO(), pod.Name, metav1.GetOptions{})
 			if err != nil {
-				log.Fatalf("Failed to get pod: %v", err)
-			}
-			podAge := currentTime.Sub(pod.CreationTimestamp.Time)
-
-			if podAge > maxPodAge {
-				kindOfOwner := describedPod.OwnerReferences[0].Kind
-				nameOfOwner := describedPod.OwnerReferences[0].Name
-				if kindOfOwner == "ReplicaSet" {
-					describedRS, err := clientset.AppsV1().ReplicaSets(namespace.Name).Get(context.TODO(), nameOfOwner, metav1.GetOptions{})
-					if err != nil {
-						log.Fatalf("Failed to get replicaset %s: %v", nameOfOwner, err)
-					}
-					nameofDeployment := describedRS.OwnerReferences[0].Name
-					describedDeploy, err := clientset.AppsV1().Deployments(namespace.Name).Get(context.TODO(), nameofDeployment, metav1.GetOptions{})
-					if err != nil {
-						log.Fatalf("Failed to get replicaset %s: %v", nameOfOwner, err)
-					}
-					if nameofDeployment == lastRestartedDeployment && namespace.Name == lastRestartedNamespace {
-						// Update the deployment annotation to trigger a rollout restart
-						if describedDeploy.Spec.Template.ObjectMeta.Annotations == nil {
-							describedDeploy.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
-						}
-						describedDeploy.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
-
-						// Apply the update
-						_, err = clientset.AppsV1().Deployments(namespace.Name).Update(context.TODO(), describedDeploy, metav1.UpdateOptions{})
-						if err != nil {
-							log.Fatalf("Failed to update deployment: %v", err)
-						}
-						lastRestartedDeployment = nameofDeployment
-						lastRestartedNamespace = namespace.Name
-
-					}
-				}
-				// kubectl rollout restart kindofOwner <daemonset-name> -n <namespace>
-				fmt.Printf("OLD!!! Podname: %s; age: %s; OwnerName %s; OwnerKind %s\n", pod.Name, podAge, nameOfOwner, kindOfOwner)
+				log.Printf("Failed to get pod: %v", err)
 			} else {
-				fmt.Printf("NEW!!! Podname: %s CreationDate %s \n", pod.Name, &describedPod.OwnerReferences[0])
+				podAge := currentTime.Sub(pod.CreationTimestamp.Time)
+
+				if podAge > maxPodAge {
+					kindOfOwner := describedPod.OwnerReferences[0].Kind
+					nameOfOwner := describedPod.OwnerReferences[0].Name
+					if kindOfOwner == "ReplicaSet" {
+						describedRS, err := clientset.AppsV1().ReplicaSets(namespace.Name).Get(context.TODO(), nameOfOwner, metav1.GetOptions{})
+						if err != nil {
+							log.Printf("Failed to get replicaset %s: %v", nameOfOwner, err)
+						} else {
+							nameofDeployment := describedRS.OwnerReferences[0].Name
+							describedDeploy, err := clientset.AppsV1().Deployments(namespace.Name).Get(context.TODO(), nameofDeployment, metav1.GetOptions{})
+							if err != nil {
+								log.Fatalf("Failed to get replicaset %s: %v", nameOfOwner, err)
+							}
+							if nameofDeployment == lastRestartedDeployment && namespace.Name == lastRestartedNamespace {
+								// Update the deployment annotation to trigger a rollout restart
+								if describedDeploy.Spec.Template.ObjectMeta.Annotations == nil {
+									describedDeploy.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
+								}
+								describedDeploy.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+
+								// Apply the update
+								_, err = clientset.AppsV1().Deployments(namespace.Name).Update(context.TODO(), describedDeploy, metav1.UpdateOptions{})
+								if err != nil {
+									log.Fatalf("Failed to update deployment: %v", err)
+								}
+								lastRestartedDeployment = nameofDeployment
+								lastRestartedNamespace = namespace.Name
+							}
+						}
+					}
+					// kubectl rollout restart kindofOwner <daemonset-name> -n <namespace>
+					fmt.Printf("OLD!!! Podname: %s; age: %s; OwnerName %s; OwnerKind %s\n", pod.Name, podAge, nameOfOwner, kindOfOwner)
+				} else {
+					fmt.Printf("NEW!!! Podname: %s CreationDate %s \n", pod.Name, &describedPod.OwnerReferences[0])
+				}
 			}
 
 			// err := clientset.CoreV1().Pods(namespace.Name).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
