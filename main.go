@@ -71,8 +71,23 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 					if err != nil {
 						log.Fatalf("Failed to get replicaset %s: %v", nameOfOwner, err)
 					}
-					kindOfOwner = describedRS.OwnerReferences[0].Kind
-					nameOfOwner = describedRS.OwnerReferences[0].Name
+					nameofDeployment := describedRS.OwnerReferences[0].Name
+					describedDeploy, err := clientset.AppsV1().Deployments(namespace.Name).Get(context.TODO(), nameofDeployment, metav1.GetOptions{})
+					if err != nil {
+						log.Fatalf("Failed to get replicaset %s: %v", nameOfOwner, err)
+					}
+					
+					// Update the deployment annotation to trigger a rollout restart
+					if describedDeploy.Spec.Template.ObjectMeta.Annotations == nil {
+						describedDeploy.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
+					}
+					describedDeploy.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+
+					// Apply the update
+					_, err = clientset.AppsV1().Deployments(namespace.Name).Update(context.TODO(), describedDeploy, metav1.UpdateOptions{})
+					if err != nil {
+						log.Fatalf("Failed to update deployment: %v", err)
+					}
 				}
 				// kubectl rollout restart kindofOwner <daemonset-name> -n <namespace>
 				fmt.Printf("OLD!!! Podname: %s; age: %s; OwnerName %s; OwnerKind %s\n", pod.Name, podAge, nameOfOwner, kindOfOwner)
