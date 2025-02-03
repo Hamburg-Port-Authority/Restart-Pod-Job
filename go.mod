@@ -29,6 +29,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/onsi/gomega v1.33.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
+	github.com/xhit/go-str2duration/v2 v2.1.0
 	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
