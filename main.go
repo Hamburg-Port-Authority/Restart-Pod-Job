@@ -98,6 +98,10 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 							if err != nil {
 								log.Fatalf("Failed to describe sts: %v", err)
 							}
+							// Update the deployment annotation to trigger a rollout restart
+							if describedSts.Spec.Template.ObjectMeta.Annotations == nil {
+								describedSts.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
+							}
 							describedSts.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 							_, err = clientset.AppsV1().StatefulSets(namespace.Name).Update(context.TODO(), describedSts, metav1.UpdateOptions{})
 							if err != nil {
@@ -111,6 +115,10 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 							describedDs, err := clientset.AppsV1().DaemonSets(namespace.Name).Get(context.TODO(), nameOfOwner, metav1.GetOptions{})
 							if err != nil {
 								log.Fatalf("Failed to describe ds: %v", err)
+							}
+							// Update the deployment annotation to trigger a rollout restart
+							if describedDs.Spec.Template.ObjectMeta.Annotations == nil {
+								describedDs.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
 							}
 							describedDs.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 							_, err = clientset.AppsV1().DaemonSets(namespace.Name).Update(context.TODO(), describedDs, metav1.UpdateOptions{})
