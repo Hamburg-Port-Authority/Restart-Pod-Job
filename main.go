@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -36,9 +35,9 @@ func main() {
 // terminateAllPods deletes all pods in all namespaces
 func terminateAllPods(clientset *kubernetes.Clientset) error {
 
-	currentTime := time.Now()
-	lastRestartedResource := ""
-	lastRestartedNamespace := ""
+	// currentTime := time.Now()
+	// lastRestartedResource := ""
+	// lastRestartedNamespace := ""
 
 	// Get all namespaces
 	namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
