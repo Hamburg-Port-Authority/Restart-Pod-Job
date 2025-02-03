@@ -24,10 +24,6 @@ func main() {
 		panic(fmt.Errorf("failed to create Kubernetes client: %v", err))
 	}
 
-	// Define the daily schedule
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-
 	fmt.Println("Starting pod termination task...")
 	err = terminateAllPods(clientset)
 	if err != nil {
@@ -80,7 +76,7 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 							if err != nil {
 								log.Fatalf("Failed to get replicaset %s: %v", nameOfOwner, err)
 							}
-							if nameofDeployment == lastRestartedDeployment && namespace.Name == lastRestartedNamespace {
+							if (nameofDeployment != lastRestartedDeployment) || (namespace.Name != lastRestartedNamespace) {
 								// Update the deployment annotation to trigger a rollout restart
 								if describedDeploy.Spec.Template.ObjectMeta.Annotations == nil {
 									describedDeploy.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
