@@ -43,7 +43,7 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 
 	maxPodAge := 5 * time.Minute
 	currentTime := time.Now()
-	lastRestartedDeployment := ""
+	lastRestartedResource := ""
 	lastRestartedNamespace := ""
 
 	// Loop through each namespace
@@ -76,7 +76,7 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 							if err != nil {
 								log.Fatalf("Failed to get replicaset %s: %v", nameOfOwner, err)
 							}
-							if (nameofDeployment != lastRestartedDeployment) || (namespace.Name != lastRestartedNamespace) {
+							if (nameofDeployment != lastRestartedResource) || (namespace.Name != lastRestartedNamespace) {
 								// Update the deployment annotation to trigger a rollout restart
 								if describedDeploy.Spec.Template.ObjectMeta.Annotations == nil {
 									describedDeploy.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
@@ -88,9 +88,37 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 								if err != nil {
 									log.Fatalf("Failed to update deployment: %v", err)
 								}
-								lastRestartedDeployment = nameofDeployment
+								lastRestartedResource = nameofDeployment
 								lastRestartedNamespace = namespace.Name
 							}
+						}
+					} else if kindOfOwner == "StatefulSet" {
+						if (nameOfOwner != lastRestartedResource) || (namespace.Name != lastRestartedNamespace) {
+							describedSts, err := clientset.AppsV1().StatefulSets(namespace.Name).Get(context.TODO(), nameOfOwner, metav1.GetOptions{})
+							if err != nil {
+								log.Fatalf("Failed to describe sts: %v", err)
+							}
+							describedSts.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+							_, err = clientset.AppsV1().StatefulSets(namespace.Name).Update(context.TODO(), describedSts, metav1.UpdateOptions{})
+							if err != nil {
+								log.Fatalf("Failed to update sts: %v", err)
+							}
+							lastRestartedResource = nameOfOwner
+							lastRestartedNamespace = namespace.Name
+						}
+					} else if kindOfOwner == "DaemonSet" {
+						if (nameOfOwner != lastRestartedResource) || (namespace.Name != lastRestartedNamespace) {
+							describedDs, err := clientset.AppsV1().DaemonSets(namespace.Name).Get(context.TODO(), nameOfOwner, metav1.GetOptions{})
+							if err != nil {
+								log.Fatalf("Failed to describe ds: %v", err)
+							}
+							describedDs.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+							_, err = clientset.AppsV1().DaemonSets(namespace.Name).Update(context.TODO(), describedDs, metav1.UpdateOptions{})
+							if err != nil {
+								log.Fatalf("Failed to update ds: %v", err)
+							}
+							lastRestartedResource = nameOfOwner
+							lastRestartedNamespace = namespace.Name
 						}
 					}
 					// kubectl rollout restart kindofOwner <daemonset-name> -n <namespace>
