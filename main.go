@@ -172,7 +172,7 @@ func restartDaemonSet(clientset *kubernetes.Clientset, namespaceName string, des
 		log.Fatalf("Failed to update ds: %v", err)
 	}
 	//sets lastRestartedResource as current daemonset
-	lastRestartedResource = describedDs.OwnerReferences[0].Name
+	lastRestartedResource = describedDs.Name
 	//sets lastRestartedNamespace as current namespace
 	lastRestartedNamespace = namespaceName
 	return nil
@@ -198,7 +198,7 @@ func restartStatefulSet(clientset *kubernetes.Clientset, namespaceName string, d
 		log.Fatalf("Failed to update ds: %v", err)
 	}
 	//sets lastRestartedResource as current daemonset
-	lastRestartedResource = describedSts.OwnerReferences[0].Name
+	lastRestartedResource = describedSts.Name
 	//sets lastRestartedNamespace as current namespace
 	lastRestartedNamespace = namespaceName
 	return nil
