@@ -6,7 +6,7 @@ metadata:
   name: pod-terminator
   namespace: pod-terminator
 spec:
-  successfulJobsHistoryLimit: 0
+  successfulJobsHistoryLimit: 1
   schedule: "*/2 * * * *"
   jobTemplate:
     spec:
