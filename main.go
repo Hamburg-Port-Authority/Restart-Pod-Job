@@ -87,13 +87,20 @@ func restartPodOwner(namespaceName string, podName string, clientset *kubernetes
 	// describe pod to be restarted
 	describedPod, err := clientset.CoreV1().Pods(namespaceName).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to list pods in namespace %s: %v", namespaceName, err)
+		log.Printf("failed to get pod %s in namespace %s: %v", podName, namespaceName, err)
+		return nil
 	}
 	//check if pod has owner
 	if describedPod.OwnerReferences == nil {
 		log.Printf("Pod %s has no Owner -> would be deleted permanently", podName)
 		return nil
 	}
+
+	if (describedPod.OwnerReferences[0].Name == lastRestartedResource) && (namespaceName == lastRestartedNamespace) {
+		log.Printf("Kind %s name %s is already being restarted", describedPod.OwnerReferences[0].Kind, describedPod.OwnerReferences[0].Name)
+		return nil
+	}
+
 	if describedPod.OwnerReferences[0].Kind == "ReplicaSet" {
 		err := restartDeployment(clientset, namespaceName, describedPod)
 		if err != nil {
@@ -130,10 +137,6 @@ func restartDeployment(clientset *kubernetes.Clientset, namespaceName string, de
 	if err != nil {
 		log.Fatalf("Failed to get deplyoment %s: %v", describedRS.OwnerReferences[0].Name, err)
 	}
-	if (describedDeploy.Name == lastRestartedResource) && (namespaceName == lastRestartedNamespace) {
-		log.Printf("Deployment %s is already being restarted", describedDeploy.Name)
-		return nil
-	}
 	// Update the deployment annotation to trigger a rollout restart
 	if describedDeploy.Spec.Template.ObjectMeta.Annotations == nil {
 		describedDeploy.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
@@ -145,19 +148,14 @@ func restartDeployment(clientset *kubernetes.Clientset, namespaceName string, de
 	if err != nil {
 		log.Fatalf("Failed to update deployment: %v", err)
 	}
-	//sets lastRestartedResource as current deployment
-	lastRestartedResource = describedDeploy.Name
+	//sets lastRestartedResource as current ReplicaSet
+	lastRestartedResource = describedRS.Name
 	//sets lastRestartedNamespace as current namespace
 	lastRestartedNamespace = namespaceName
 	return nil
 }
 
 func restartDaemonSet(clientset *kubernetes.Clientset, namespaceName string, describedPod *v1.Pod) error {
-	if (describedPod.OwnerReferences[0].Name == lastRestartedResource) && (namespaceName == lastRestartedNamespace) {
-		log.Printf("DaemonSet %s is already being restarted", describedPod.OwnerReferences[0].Name)
-		return nil
-	}
-
 	describedDs, err := clientset.AppsV1().DaemonSets(namespaceName).Get(context.TODO(), describedPod.OwnerReferences[0].Name, metav1.GetOptions{})
 	if err != nil {
 		log.Fatalf("Failed to describe ds: %v", err)
@@ -179,11 +177,6 @@ func restartDaemonSet(clientset *kubernetes.Clientset, namespaceName string, des
 }
 
 func restartStatefulSet(clientset *kubernetes.Clientset, namespaceName string, describedPod *v1.Pod) error {
-	if (describedPod.OwnerReferences[0].Name == lastRestartedResource) && (namespaceName == lastRestartedNamespace) {
-		log.Printf("StatefulSet %s is already being restarted", describedPod.OwnerReferences[0].Name)
-		return nil
-	}
-
 	describedSts, err := clientset.AppsV1().StatefulSets(namespaceName).Get(context.TODO(), describedPod.OwnerReferences[0].Name, metav1.GetOptions{})
 	if err != nil {
 		log.Fatalf("Failed to describe ds: %v", err)
