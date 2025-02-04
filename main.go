@@ -132,6 +132,7 @@ func restartPodOwner(namespaceName string, podName string, clientset *kubernetes
 		lastRestartedNamespace = namespaceName
 
 	} else if describedPod.OwnerReferences[0].Kind == "DaemonSet" {
+
 	} else if describedPod.OwnerReferences[0].Kind == "StatefulSet" {
 	}
 
