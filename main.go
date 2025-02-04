@@ -16,33 +16,33 @@ import (
 var lastRestartedNamespace, lastRestartedResource string
 
 func main() {
-	// Create an in-cluster config
-	config, err := rest.InClusterConfig()
+	// Create Kubernetes client
+	clientset, err := getKubernetesClient()
 	if err != nil {
-		panic(fmt.Errorf("failed to create in-cluster config: %v", err))
+		log.Fatalf("error initializing Kubernetes client: %v", err)
 	}
 
-	// Create Kubernetes client
-	clientset, err := kubernetes.NewForConfig(config)
+	log.Println("Starting pod termination task...")
+	if err := terminateAllPods(clientset); err != nil {
+		log.Printf("Error terminating pods: %v", err)
+	} else {
+		log.Println("Successfully terminated all pods.")
+	}
+}
+
+func getKubernetesClient() (*kubernetes.Clientset, error) {
+	config, err := rest.InClusterConfig()
 	if err != nil {
 		panic(fmt.Errorf("failed to create Kubernetes client: %v", err))
 	}
-
-	fmt.Println("Starting pod termination task...")
-	err = terminateAllPods(clientset)
-	if err != nil {
-		fmt.Printf("Error terminating pods: %v\n", err)
-	} else {
-		fmt.Println("Successfully terminated all pods.")
-	}
+	return kubernetes.NewForConfig(config)
 }
 
 // terminateAllPods deletes all pods in all namespaces
 func terminateAllPods(clientset *kubernetes.Clientset) error {
 
 	currentTime := time.Now()
-	lastRestartedResource = ""
-	lastRestartedNamespace = ""
+	lastRestartedNamespace, lastRestartedResource = "", ""
 
 	// Get all namespaces
 	namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
@@ -57,26 +57,28 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 		}
 		// check annotations of ns if ttl-annotation exists
 		ttl, exists := describedNs.ObjectMeta.Annotations["ttl"]
-		if exists {
-			// ttl exists -> cast into duration
-			ttlInDuration, err := str2duration.ParseDuration(ttl)
+		if !exists {
+			return nil
+		}
+		// ttl exists -> cast into duration
+		ttlInDuration, err := str2duration.ParseDuration(ttl)
+		if err != nil {
+			return fmt.Errorf("failed to list pods in namespace %s: %v", namespace.Name, err)
+		}
+		//get all pods in current namespace
+		pods, err := clientset.CoreV1().Pods(namespace.Name).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list pods in namespace %s: %v", namespace.Name, err)
+		}
+		for _, pod := range pods.Items {
+			podAge := currentTime.Sub(pod.CreationTimestamp.Time)
+			// if pod is older than ttl
+			if ttlInDuration >= podAge {
+				return nil
+			}
+			err := restartPodOwner(namespace.Name, pod.Name, clientset)
 			if err != nil {
 				return fmt.Errorf("failed to list pods in namespace %s: %v", namespace.Name, err)
-			}
-			//get all pods in current namespace
-			pods, err := clientset.CoreV1().Pods(namespace.Name).List(context.TODO(), metav1.ListOptions{})
-			if err != nil {
-				return fmt.Errorf("failed to list pods in namespace %s: %v", namespace.Name, err)
-			}
-			for _, pod := range pods.Items {
-				podAge := currentTime.Sub(pod.CreationTimestamp.Time)
-				// if pod is older than ttl
-				if ttlInDuration < podAge {
-					err := restartPodOwner(namespace.Name, pod.Name, clientset)
-					if err != nil {
-						return fmt.Errorf("failed to list pods in namespace %s: %v", namespace.Name, err)
-					}
-				}
 			}
 		}
 	}
