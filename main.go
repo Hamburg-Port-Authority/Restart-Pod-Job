@@ -52,7 +52,7 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 		// describe ns
 		describedNs, err := clientset.CoreV1().Namespaces().Get(context.TODO(), namespace.Name, metav1.GetOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to list namespaces: %v", err)
+			return fmt.Errorf("failed to describe namespace: %v", err)
 		}
 		// check annotations of ns if ttl-annotation exists
 		ttl, exists := describedNs.ObjectMeta.Annotations["ttl"]
@@ -89,7 +89,7 @@ func restartPodOwner(namespaceName string, podName string, clientset *kubernetes
 		return fmt.Errorf("failed to list pods in namespace %s: %v", namespaceName, err)
 	}
 	//check if pod has owner
-	if describedPod.OwnerReferences != nil {
+	if describedPod.OwnerReferences == nil {
 		log.Printf("Pod %s has no Owner -> would be deleted permanently", podName)
 		return nil
 	}
