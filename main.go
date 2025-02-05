@@ -93,7 +93,7 @@ func restartPodOwner(namespaceName string, podName string, clientset *kubernetes
 		return nil
 	}
 	//check if pod has owner
-	if describedPod.OwnerReferences == nil {
+	if (describedPod.OwnerReferences == nil) || (len(describedPod.OwnerReferences) == 0) {
 		log.Printf("Pod %s has no Owner -> would be deleted permanently", podName)
 		return nil
 	}
@@ -103,27 +103,18 @@ func restartPodOwner(namespaceName string, podName string, clientset *kubernetes
 		return nil
 	}
 
-	if describedPod.OwnerReferences[0].Kind == "ReplicaSet" {
-		err := restartDeployment(clientset, namespaceName, describedPod)
-		if err != nil {
-			return fmt.Errorf("failed to restart deployments in namespace %s: %v", namespaceName, err)
-		}
-	} else if describedPod.OwnerReferences[0].Kind == "DaemonSet" {
-		err := restartDaemonSet(clientset, namespaceName, describedPod)
-		if err != nil {
-			return fmt.Errorf("failed to restart daemonsets in namespace %s: %v", namespaceName, err)
-		}
-	} else if describedPod.OwnerReferences[0].Kind == "StatefulSet" {
-		err := restartStatefulSet(clientset, namespaceName, describedPod)
-		if err != nil {
-			return fmt.Errorf("failed to restart statefulsets in namespace %s: %v", namespaceName, err)
-		}
+	switch describedPod.OwnerReferences[0].Kind {
+	case "ReplicaSet":
+		//get Deployment to restart
+		return handleReplicaSet(clientset, namespaceName, describedPod)
+	case "DaemonSet":
+	case "StatefulSet":
+		return restartResource(clientset, namespaceName, describedPod.OwnerReferences[0].Name, describedPod.OwnerReferences[0].Kind)
 	}
-
 	return nil
 }
 
-func restartDeployment(clientset *kubernetes.Clientset, namespaceName string, describedPod *v1.Pod) error {
+func handleReplicaSet(clientset *kubernetes.Clientset, namespaceName string, describedPod *v1.Pod) error {
 	describedRS, err := clientset.AppsV1().ReplicaSets(namespaceName).Get(context.TODO(), describedPod.OwnerReferences[0].Name, metav1.GetOptions{})
 	if err != nil {
 		log.Printf("Failed to get replicaset %s: %v", describedPod.OwnerReferences[0].Name, err)
@@ -134,67 +125,51 @@ func restartDeployment(clientset *kubernetes.Clientset, namespaceName string, de
 		log.Printf("ReplicaSet %s has no Owner -> would be deleted permanently", describedRS.Name)
 		return nil
 	}
-	// Describe Deployment -> Owner of Rs
-	describedDeploy, err := clientset.AppsV1().Deployments(namespaceName).Get(context.TODO(), describedRS.OwnerReferences[0].Name, metav1.GetOptions{})
-	if err != nil {
-		log.Fatalf("Failed to get deplyoment %s: %v", describedRS.OwnerReferences[0].Name, err)
-	}
-	// Update the deployment annotation to trigger a rollout restart
-	if describedDeploy.Spec.Template.ObjectMeta.Annotations == nil {
-		describedDeploy.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
-	}
-	describedDeploy.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+	return restartResource(clientset, namespaceName, describedRS.OwnerReferences[0].Name, describedRS.OwnerReferences[0].Kind)
+}
 
-	// Apply the update
-	_, err = clientset.AppsV1().Deployments(namespaceName).Update(context.TODO(), describedDeploy, metav1.UpdateOptions{})
-	if err != nil {
-		log.Fatalf("Failed to update deployment: %v", err)
+func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, resourceType string) error {
+	switch resourceType {
+	case "Deployment":
+		deployment, err := clientset.AppsV1().Deployments(namespace).Get(context.TODO(), resourceName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get Deployment %s: %w", resourceName, err)
+		}
+		updateAnnotations(deployment)
+		_, err = clientset.AppsV1().Deployments(namespace).Update(context.TODO(), deployment, metav1.UpdateOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to update %s %s: %w", resourceType, resourceName, err)
+		}
+	case "DaemonSet":
+		daemonSet, err := clientset.AppsV1().DaemonSets(namespace).Get(context.TODO(), resourceName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get DaemonSet %s: %w", resourceName, err)
+		}
+		updateAnnotations(daemonSet)
+		_, err = clientset.AppsV1().DaemonSets(namespace).Update(context.TODO(), daemonSet, metav1.UpdateOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to update %s %s: %w", resourceType, resourceName, err)
+		}
+	case "StatefulSet":
+		statefulSet, err := clientset.AppsV1().StatefulSets(namespace).Get(context.TODO(), resourceName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get StatefulSet %s: %w", resourceName, err)
+		}
+		updateAnnotations(statefulSet)
+		_, err = clientset.AppsV1().StatefulSets(namespace).Update(context.TODO(), statefulSet, metav1.UpdateOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to update %s %s: %w", resourceType, resourceName, err)
+		}
 	}
-	//sets lastRestartedResource as current ReplicaSet
-	lastRestartedResource = describedRS.Name
-	//sets lastRestartedNamespace as current namespace
-	lastRestartedNamespace = namespaceName
+
+	lastRestartedResource = resourceName
+	lastRestartedNamespace = namespace
 	return nil
 }
 
-func restartDaemonSet(clientset *kubernetes.Clientset, namespaceName string, describedPod *v1.Pod) error {
-	describedDs, err := clientset.AppsV1().DaemonSets(namespaceName).Get(context.TODO(), describedPod.OwnerReferences[0].Name, metav1.GetOptions{})
-	if err != nil {
-		log.Fatalf("Failed to describe ds: %v", err)
+func updateAnnotations(resource metav1.Object) {
+	if resource.GetAnnotations() == nil {
+		resource.SetAnnotations(make(map[string]string))
 	}
-	// Update the deployment annotation to trigger a rollout restart
-	if describedDs.Spec.Template.ObjectMeta.Annotations == nil {
-		describedDs.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
-	}
-	describedDs.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
-	_, err = clientset.AppsV1().DaemonSets(namespaceName).Update(context.TODO(), describedDs, metav1.UpdateOptions{})
-	if err != nil {
-		log.Fatalf("Failed to update ds: %v", err)
-	}
-	//sets lastRestartedResource as current daemonset
-	lastRestartedResource = describedDs.Name
-	//sets lastRestartedNamespace as current namespace
-	lastRestartedNamespace = namespaceName
-	return nil
-}
-
-func restartStatefulSet(clientset *kubernetes.Clientset, namespaceName string, describedPod *v1.Pod) error {
-	describedSts, err := clientset.AppsV1().StatefulSets(namespaceName).Get(context.TODO(), describedPod.OwnerReferences[0].Name, metav1.GetOptions{})
-	if err != nil {
-		log.Fatalf("Failed to describe ds: %v", err)
-	}
-	// Update the deployment annotation to trigger a rollout restart
-	if describedSts.Spec.Template.ObjectMeta.Annotations == nil {
-		describedSts.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
-	}
-	describedSts.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
-	_, err = clientset.AppsV1().StatefulSets(namespaceName).Update(context.TODO(), describedSts, metav1.UpdateOptions{})
-	if err != nil {
-		log.Fatalf("Failed to update ds: %v", err)
-	}
-	//sets lastRestartedResource as current daemonset
-	lastRestartedResource = describedSts.Name
-	//sets lastRestartedNamespace as current namespace
-	lastRestartedNamespace = namespaceName
-	return nil
+	resource.GetAnnotations()["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 }
