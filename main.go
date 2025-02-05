@@ -58,6 +58,7 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 		// check annotations of ns if ttl-annotation exists
 		ttl, exists := describedNs.ObjectMeta.Annotations["ttl"]
 		if !exists {
+			log.Printf("Namespace %s will not be restarted", namespace.Name)
 			return nil
 		}
 		// ttl exists -> cast into duration
