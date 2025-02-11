@@ -132,12 +132,15 @@ func restartPodOwner(namespaceName string, podName string, clientset *kubernetes
 		log.Printf("Kind %s name %s is already being restarted", describedPod.OwnerReferences[0].Kind, describedPod.OwnerReferences[0].Name)
 		return nil
 	}
+	lastRestartedResource = describedPod.OwnerReferences[0].Name
+	lastRestartedNamespace = namespaceName
 
 	switch describedPod.OwnerReferences[0].Kind {
 	case "ReplicaSet":
 		//get Deployment to restart
 		return handleReplicaSet(clientset, namespaceName, describedPod)
 	case "DaemonSet":
+		return restartResource(clientset, namespaceName, describedPod.OwnerReferences[0].Name, describedPod.OwnerReferences[0].Kind)
 	case "StatefulSet":
 		return restartResource(clientset, namespaceName, describedPod.OwnerReferences[0].Name, describedPod.OwnerReferences[0].Kind)
 	}
@@ -155,15 +158,12 @@ func handleReplicaSet(clientset *kubernetes.Clientset, namespaceName string, des
 		log.Printf("ReplicaSet %s has no Owner -> would be deleted permanently", describedRS.Name)
 		return nil
 	}
-	lastRestartedResource = describedRS.OwnerReferences[0].Name
-	lastRestartedNamespace = namespaceName
 	return restartResource(clientset, namespaceName, describedRS.OwnerReferences[0].Name, describedRS.OwnerReferences[0].Kind)
 }
 
 func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, resourceType string) error {
 	switch resourceType {
 	case "Deployment":
-		log.Printf("Case: Deployment")
 		deployment, err := clientset.AppsV1().Deployments(namespace).Get(context.TODO(), resourceName, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get Deployment %s: %w", resourceName, err)
@@ -189,8 +189,6 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 		if err != nil {
 			return fmt.Errorf("failed to update %s %s: %w", resourceType, resourceName, err)
 		}
-		lastRestartedResource = daemonSet.OwnerReferences[0].Name
-		lastRestartedNamespace = namespace
 	case "StatefulSet":
 		statefulSet, err := clientset.AppsV1().StatefulSets(namespace).Get(context.TODO(), resourceName, metav1.GetOptions{})
 		if err != nil {
@@ -204,9 +202,7 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 		if err != nil {
 			return fmt.Errorf("failed to update %s %s: %w", resourceType, resourceName, err)
 		}
-		lastRestartedResource = statefulSet.OwnerReferences[0].Name
-		lastRestartedNamespace = namespace
 	}
-	log.Printf("Resource %s in namespace %s has been restarted", lastRestartedResource, lastRestartedNamespace)
+	log.Printf("Resource %s in namespace %s has been restarted", resourceName, namespace)
 	return nil
 }
