@@ -74,7 +74,7 @@ func handleNamespace(clientset *kubernetes.Clientset, namespace v1.Namespace, cu
 func handlePod(pod v1.Pod, namespace v1.Namespace, currentTime time.Time, clientset *kubernetes.Clientset) error {
 	ttl, exists := pod.Annotations["restart.k8s.hpa.de/ttl"]
 	if !exists {
-		log.Printf("Pod %s will not be restarted", pod.Name)
+		log.Printf("Pod %s will not be restarted -> no annotation", pod.Name)
 		return nil
 	}
 	// ttl exists -> cast into duration
@@ -85,7 +85,8 @@ func handlePod(pod v1.Pod, namespace v1.Namespace, currentTime time.Time, client
 	podAge := currentTime.Sub(pod.CreationTimestamp.Time)
 
 	// if pod is older than ttl
-	if ttlInDuration >= podAge {
+	if podAge < ttlInDuration {
+		log.Printf("Pod %s will not be restarted -> not old enough; age: %s; ttl: %s", pod.Name, podAge, ttlInDuration)
 		return nil
 	}
 	err = restartPodOwner(namespace.Name, pod.Name, clientset)
