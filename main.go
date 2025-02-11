@@ -147,7 +147,10 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 		if err != nil {
 			return fmt.Errorf("failed to get Deployment %s: %w", resourceName, err)
 		}
-		updateAnnotations(deployment)
+		if deployment.GetAnnotations() == nil {
+			deployment.SetAnnotations(make(map[string]string))
+		}
+		deployment.GetAnnotations()["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 		_, err = clientset.AppsV1().Deployments(namespace).Update(context.TODO(), deployment, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update %s %s: %w", resourceType, resourceName, err)
@@ -157,7 +160,10 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 		if err != nil {
 			return fmt.Errorf("failed to get DaemonSet %s: %w", resourceName, err)
 		}
-		updateAnnotations(daemonSet)
+		if daemonSet.GetAnnotations() == nil {
+			daemonSet.SetAnnotations(make(map[string]string))
+		}
+		daemonSet.GetAnnotations()["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 		_, err = clientset.AppsV1().DaemonSets(namespace).Update(context.TODO(), daemonSet, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update %s %s: %w", resourceType, resourceName, err)
@@ -167,7 +173,10 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 		if err != nil {
 			return fmt.Errorf("failed to get StatefulSet %s: %w", resourceName, err)
 		}
-		updateAnnotations(statefulSet)
+		if statefulSet.GetAnnotations() == nil {
+			statefulSet.SetAnnotations(make(map[string]string))
+		}
+		statefulSet.GetAnnotations()["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 		_, err = clientset.AppsV1().StatefulSets(namespace).Update(context.TODO(), statefulSet, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update %s %s: %w", resourceType, resourceName, err)
@@ -178,11 +187,4 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 	lastRestartedNamespace = namespace
 	log.Printf("Resource %s in namespace %s has been restarted", lastRestartedResource, lastRestartedNamespace)
 	return nil
-}
-
-func updateAnnotations(resource metav1.Object) {
-	if resource.GetAnnotations() == nil {
-		resource.SetAnnotations(make(map[string]string))
-	}
-	resource.GetAnnotations()["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 }
