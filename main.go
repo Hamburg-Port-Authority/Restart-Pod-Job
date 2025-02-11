@@ -136,13 +136,15 @@ func handleReplicaSet(clientset *kubernetes.Clientset, namespaceName string, des
 		log.Printf("ReplicaSet %s has no Owner -> would be deleted permanently", describedRS.Name)
 		return nil
 	}
+	lastRestartedResource = describedRS.OwnerReferences[0].Name
+	lastRestartedNamespace = namespaceName
 	return restartResource(clientset, namespaceName, describedRS.OwnerReferences[0].Name, describedRS.OwnerReferences[0].Kind)
 }
 
 func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, resourceType string) error {
-	log.Printf("Resource %s %s is being restarted", resourceType, resourceName)
 	switch resourceType {
 	case "Deployment":
+		log.Printf("Case: Deployment")
 		deployment, err := clientset.AppsV1().Deployments(namespace).Get(context.TODO(), resourceName, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get Deployment %s: %w", resourceName, err)
@@ -150,7 +152,7 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 		if deployment.GetAnnotations() == nil {
 			deployment.SetAnnotations(make(map[string]string))
 		}
-		deployment.GetAnnotations()["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+		deployment.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 		_, err = clientset.AppsV1().Deployments(namespace).Update(context.TODO(), deployment, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update %s %s: %w", resourceType, resourceName, err)
@@ -163,11 +165,13 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 		if daemonSet.GetAnnotations() == nil {
 			daemonSet.SetAnnotations(make(map[string]string))
 		}
-		daemonSet.GetAnnotations()["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+		daemonSet.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 		_, err = clientset.AppsV1().DaemonSets(namespace).Update(context.TODO(), daemonSet, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update %s %s: %w", resourceType, resourceName, err)
 		}
+		lastRestartedResource = daemonSet.OwnerReferences[0].Name
+		lastRestartedNamespace = namespace
 	case "StatefulSet":
 		statefulSet, err := clientset.AppsV1().StatefulSets(namespace).Get(context.TODO(), resourceName, metav1.GetOptions{})
 		if err != nil {
@@ -176,15 +180,14 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 		if statefulSet.GetAnnotations() == nil {
 			statefulSet.SetAnnotations(make(map[string]string))
 		}
-		statefulSet.GetAnnotations()["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+		statefulSet.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 		_, err = clientset.AppsV1().StatefulSets(namespace).Update(context.TODO(), statefulSet, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update %s %s: %w", resourceType, resourceName, err)
 		}
+		lastRestartedResource = statefulSet.OwnerReferences[0].Name
+		lastRestartedNamespace = namespace
 	}
-
-	lastRestartedResource = resourceName
-	lastRestartedNamespace = namespace
 	log.Printf("Resource %s in namespace %s has been restarted", lastRestartedResource, lastRestartedNamespace)
 	return nil
 }
