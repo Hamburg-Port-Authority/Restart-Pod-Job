@@ -140,6 +140,7 @@ func handleReplicaSet(clientset *kubernetes.Clientset, namespaceName string, des
 }
 
 func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, resourceType string) error {
+	log.Printf("Resource %s %s is being restarted", resourceType, resourceName)
 	switch resourceType {
 	case "Deployment":
 		deployment, err := clientset.AppsV1().Deployments(namespace).Get(context.TODO(), resourceName, metav1.GetOptions{})
@@ -175,6 +176,7 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 
 	lastRestartedResource = resourceName
 	lastRestartedNamespace = namespace
+	log.Printf("Resource %s in namespace %s has been restarted", lastRestartedResource, lastRestartedNamespace)
 	return nil
 }
 
