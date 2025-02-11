@@ -56,34 +56,30 @@ func terminateAllPods(clientset *kubernetes.Clientset) error {
 }
 
 func handleNamespace(clientset *kubernetes.Clientset, namespace v1.Namespace, currentTime time.Time) error {
-	// describe ns
-	describedNs, err := clientset.CoreV1().Namespaces().Get(context.TODO(), namespace.Name, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to describe namespace: %v", err)
-	}
-	// check annotations of ns if ttl-annotation exists
-	ttl, exists := describedNs.ObjectMeta.Annotations["ttl"]
-	if !exists {
-		log.Printf("Namespace %s will not be restarted", namespace.Name)
-		return nil
-	}
-	// ttl exists -> cast into duration
-	ttlInDuration, err := str2duration.ParseDuration(ttl)
-	if err != nil {
-		return fmt.Errorf("failed to list pods in namespace %s: %v", namespace.Name, err)
-	}
 	//get all pods in current namespace
 	pods, err := clientset.CoreV1().Pods(namespace.Name).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list pods in namespace %s: %v", namespace.Name, err)
 	}
 	for _, pod := range pods.Items {
+		// check annotations of ns if ttl-annotation exists
+		ttl, exists := pod.Annotations["restart.k8s.hpa.de/ttl"]
+		if !exists {
+			log.Printf("Pod %s will not be restarted", pod.Name)
+			return nil
+		}
+		// ttl exists -> cast into duration
+		ttlInDuration, err := str2duration.ParseDuration(ttl)
+		if err != nil {
+			return fmt.Errorf("failed to list pods in namespace %s: %v", namespace.Name, err)
+		}
 		podAge := currentTime.Sub(pod.CreationTimestamp.Time)
+
 		// if pod is older than ttl
 		if ttlInDuration >= podAge {
 			return nil
 		}
-		err := restartPodOwner(namespace.Name, pod.Name, clientset)
+		err = restartPodOwner(namespace.Name, pod.Name, clientset)
 		if err != nil {
 			return fmt.Errorf("failed to list pods in namespace %s: %v", namespace.Name, err)
 		}
