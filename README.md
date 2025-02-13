@@ -1,9 +1,10 @@
-# Restart-Pod-Job
+# Restart-Pod-Job 
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
 [![MIT License][license-shield]][license-url]
+[![Go Report Card](https://goreportcard.com/badge/github.com/SteveDetm/Restart-Pod-Job)](https://goreportcard.com/report/github.com/SteveDetm/Restart-Pod-Job)
 
 This Project has the focus to find an easy solution to get compliant with the BSI IT-Grundschutz-Building Block [APP.4.4.A21 Regelmäßiger Restart von Pods](https://www.bsi.bund.de/SharedDocs/Downloads/DE/BSI/Grundschutz/IT-GS-Kompendium_Einzel_PDFs_2022/06_APP_Anwendungen/APP_4_4_Kubernetes_Edition_2022.pdf?__blob=publicationFile&v=3).
 
