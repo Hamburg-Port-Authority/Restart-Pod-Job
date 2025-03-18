@@ -169,7 +169,7 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 			return fmt.Errorf("failed to get Deployment %s: %w", resourceName, err)
 		}
 		if deployment.Spec.Template.ObjectMeta.Annotations == nil {
-			deployment.SetAnnotations(make(map[string]string))
+			deployment.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
 		}
 		deployment.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 		_, err = clientset.AppsV1().Deployments(namespace).Update(context.TODO(), deployment, metav1.UpdateOptions{})
@@ -182,7 +182,7 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 			return fmt.Errorf("failed to get DaemonSet %s: %w", resourceName, err)
 		}
 		if daemonSet.Spec.Template.ObjectMeta.Annotations == nil {
-			daemonSet.SetAnnotations(make(map[string]string))
+			daemonSet.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
 		}
 		daemonSet.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 		_, err = clientset.AppsV1().DaemonSets(namespace).Update(context.TODO(), daemonSet, metav1.UpdateOptions{})
@@ -197,11 +197,7 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 		log.Printf("before if")
 		if statefulSet.Spec.Template.ObjectMeta.Annotations == nil {
 			log.Printf("inside if")
-			statefulSet.SetAnnotations(make(map[string]string))
-		}
-		if statefulSet.GetAnnotations() == nil {
-			log.Printf("inside if2")
-			statefulSet.SetAnnotations(make(map[string]string))
+			statefulSet.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
 		}
 		log.Printf("after if")
 		statefulSet.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
