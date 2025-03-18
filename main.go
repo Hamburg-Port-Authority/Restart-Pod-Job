@@ -168,7 +168,7 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 		if err != nil {
 			return fmt.Errorf("failed to get Deployment %s: %w", resourceName, err)
 		}
-		if deployment.GetAnnotations() == nil {
+		if deployment.Spec.Template.ObjectMeta.Annotations == nil {
 			deployment.SetAnnotations(make(map[string]string))
 		}
 		deployment.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
@@ -181,7 +181,7 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 		if err != nil {
 			return fmt.Errorf("failed to get DaemonSet %s: %w", resourceName, err)
 		}
-		if daemonSet.GetAnnotations() == nil {
+		if daemonSet.Spec.Template.ObjectMeta.Annotations == nil {
 			daemonSet.SetAnnotations(make(map[string]string))
 		}
 		daemonSet.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
@@ -194,7 +194,7 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 		if err != nil {
 			return fmt.Errorf("failed to get StatefulSet %s: %w", resourceName, err)
 		}
-		if statefulSet.GetAnnotations() == nil {
+		if statefulSet.Spec.Template.ObjectMeta.Annotations == nil {
 			statefulSet.SetAnnotations(make(map[string]string))
 		}
 		statefulSet.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
