@@ -194,12 +194,9 @@ func restartResource(clientset *kubernetes.Clientset, namespace, resourceName, r
 		if err != nil {
 			return fmt.Errorf("failed to get StatefulSet %s: %w", resourceName, err)
 		}
-		log.Printf("before if")
 		if statefulSet.Spec.Template.ObjectMeta.Annotations == nil {
-			log.Printf("inside if")
 			statefulSet.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
 		}
-		log.Printf("after if")
 		statefulSet.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 		_, err = clientset.AppsV1().StatefulSets(namespace).Update(context.TODO(), statefulSet, metav1.UpdateOptions{})
 		if err != nil {
